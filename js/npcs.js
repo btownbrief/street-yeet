@@ -138,8 +138,13 @@ export class NPCs {
     npc.rig.updateFromBodies(r.bodies);
     const hips = r.bodies[0].position;
     npc.x = hips.x; npc.z = hips.z;
-    const far = player ? Math.hypot(hips.x - player.x, hips.z - player.z) > 75 : false;
-    if (r.settled > 1.4 || r.age > 9 || far || hips.y < -3) this.standUp(npc);
+    if (hips.y < -3) { this.standUp(npc); return; }          // fell out of the world
+    // still flying? never recycle mid-air — a big yeet is supposed to travel far.
+    const airborne = hips.y > 1.0 && r.bodies[0].velocity.length() > 2;
+    if (airborne) return;
+    // the distance cull only applies to incidental ragdolls, not ones YOU launched.
+    const far = (!r.playerYeet && player) ? Math.hypot(hips.x - player.x, hips.z - player.z) > 75 : false;
+    if (r.settled > 1.4 || r.age > (r.playerYeet ? 14 : 9) || far) this.standUp(npc);
   }
 
   standUp(npc) {
@@ -149,7 +154,7 @@ export class NPCs {
     npc.z = Math.max(STREET.zNorth + 2, Math.min(STREET.zSouth - 2, hips.z));
     // if they landed inside a building footprint on a side street, pull them back to the bricks
     this.physics.releaseRagdoll(r);
-    npc.rag = null;
+    npc.rag = null; npc.rig.mesh.frustumCulled = true;
     npc.state = 'dazed'; npc.dazeT = 2.2 + Math.random();
     npc.yaw = Math.random() * Math.PI * 2;
     npc.rig.setPosition(npc.x, 0, npc.z); npc.rig.setHeading(npc.yaw);
@@ -194,6 +199,7 @@ export class NPCs {
     const r = this.physics.activateRagdoll(parts, rig.scale, imp, point, PART_INDEX[partName] ?? 1);
     r.npc = npc;
     npc.rag = r; npc.state = 'ragdoll'; npc.hits++;
+    rig.mesh.frustumCulled = false;                          // never cull a body in flight
     rig.updateFromBodies(r.bodies);
     if (this.onYelp) {
       const ys = YELPS[npc.type] || ['Ope.'];

@@ -314,7 +314,7 @@ player.onYeet = ({ dir, speed, power }) => {
   audio.yeet(mult); audio.whoosh(power); shake.hit(0.16, 0.3);
   particles.burst(t.x, t.y, t.z, t.type === 'person' ? '#e8d9c4' : '#c9c2b0', 16, 4, 1.1);
   G.timeScale = 0.4; G.slowT = 0.18;  // a beat of slow-mo on the launch
-  player.startWatch(body, 3.0);
+  player.startWatch(body, 8.0);
   G.watching = { type: t.type, ref: t.ref, body, start: { x: t.x, z: t.z }, peak: 0, label, mult };
   targetRing.visible = false;
 };

@@ -225,16 +225,16 @@ export class Player {
   updateWatch(dt) {
     const w = this.watch; w.t += dt;
     const p = w.body.position, v = w.body.velocity;
-    // camera trails behind the flight direction, a bit above
+    // trail behind the flight direction and pull back with speed + height so a
+    // fast, high launch stays fully framed (never flies off-screen).
     const speed = Math.hypot(v.x, v.z);
     _dir.set(v.x, 0, v.z); if (_dir.lengthSq() < 0.01) _dir.set(Math.sin(this.camYaw), 0, Math.cos(this.camYaw)); _dir.normalize();
-    const back = 5.5 + Math.min(4, speed * 0.2);
-    _want.set(p.x - _dir.x * back, Math.max(1.6, p.y + 2.6), p.z - _dir.z * back);
-    const kk = 1 - Math.pow(0.0009, dt);
+    const back = 6 + speed * 0.32 + p.y * 0.35;
+    _want.set(p.x - _dir.x * back, Math.max(2.2, p.y * 0.55 + 4), p.z - _dir.z * back);
+    const kk = 1 - Math.pow(0.00003, dt);   // snappy — keep up with a fast body
     this.camPos.lerp(_want, kk);
-    this.camLook.lerp(_tmp.set(p.x + _dir.x * 1.5, p.y + 0.3, p.z + _dir.z * 1.5), 1 - Math.pow(0.002, dt));
+    this.camLook.lerp(_tmp.set(p.x, p.y + 0.2, p.z), 1 - Math.pow(0.00005, dt));
     this.camera.position.copy(this.camPos); this.camera.lookAt(this.camLook);
-    // keep camYaw roughly aligned so returning control isn't jarring
     this.camYaw = Math.atan2(_dir.x, _dir.z);
   }
 }
