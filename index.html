@@ -42,6 +42,7 @@
       <div id="hudRight"><button id="pauseBtn" class="hud-chip" aria-label="Pause">⏸</button></div>
     </div>
     <div id="crosshair"><div id="chargeRing"></div></div>
+    <div id="yeetPrompt" class="hidden">HOLD to grab · release to YEET</div>
     <div id="announcer"></div>
     <div id="floaters"></div>
     <div id="hudBottom">
@@ -65,6 +66,7 @@
       <div class="card-sub">Click anywhere to keep yeeting</div>
       <div class="card-btns">
         <button id="resumeBtn" class="big-btn">RESUME</button>
+        <button id="pauseModeBtn" class="chip-btn">SWITCH MODE</button>
         <button id="quitBtn" class="chip-btn">QUIT TO MENU</button>
       </div>
     </div>
@@ -83,10 +85,14 @@
   <div id="menu" class="screen">
     <div class="menu-inner">
       <div class="logo"><span class="l1">STREET</span><span class="l2">YEET</span></div>
-      <div id="tagline">It's leaf-peeper season and Church Street is a parking lot.<br>
-        Clear a path the Vermont way: <strong>creemees, syrup, and a wheel of cheddar.</strong><br>
-        <span class="dim">Nobody gets hurt. They just get yeeted.</span></div>
-      <button id="playBtn" class="big-btn">🍦&nbsp; YEET</button>
+      <div id="tagline">It's leaf-peeper season and Church Street is jammed.<br>
+        <strong>Grab a tourist — or a bench, a trash can, a whole café table — and YEET it down the bricks for distance.</strong><br>
+        <span class="dim">Nobody gets hurt. They just get launched.</span></div>
+      <div id="modeSelect">
+        <button class="mode-btn" data-mode="yeet"><b>🙋 YEET MODE</b><span>grab &amp; launch people and things for distance</span></button>
+        <button class="mode-btn" data-mode="throw"><b>🍦 THROW MODE</b><span>sling creemees, syrup &amp; cheddar wheels</span></button>
+      </div>
+      <button id="playBtn" class="big-btn">🚀&nbsp; PLAY</button>
       <button id="quickBtn" class="chip-btn">SKIP INTRO</button>
       <div id="menuBest" class="dim"></div>
       <div id="howto">

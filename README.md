@@ -10,9 +10,18 @@ famous pedestrian street.
 
 ## The game
 
-- **Third-person**, 90-second rounds. Move with WASD (or an on-screen stick on
-  phones), aim with the mouse/right thumb, **hold to charge** a throw and release
-  to YEET.
+Two modes, your pick on the title screen (switch any time from the pause menu):
+
+- **🙋 YEET MODE (the main event).** Walk up to anyone — or anything — lock on,
+  **hold to charge and aim, release to LAUNCH** them down the bricks. The camera
+  chases the flight; you score by **distance**, with air-time and domino bonuses.
+  People, benches, trash cans, café tables, chairs, sandwich-board signs, traffic
+  cones, news boxes, even the painted cows — **most of the street is yeetable.**
+- **🍦 THROW MODE.** The projectile game: sling creemees, pints, syrup jugs, a
+  rolling cheddar wheel and pumpkins at the crowd.
+
+Both are **third-person**, 90-second rounds. Move with WASD (or an on-screen stick
+on phones), aim with the mouse/right thumb, hold to charge and release to yeet.
 - **Five throwables**, each with real physics: the fast light **maple creemee**
   (splats), the **bouncy pint** (ricochets), the heavy **syrup jug** (big
   knockback), the **cheddar wheel** (rolls down the bricks like a bowling ball),
@@ -54,7 +63,8 @@ modules in `js/`, three.js (r160) and cannon-es vendored as single files.
 | `js/characters.js` | the shared skinned character rig (one draw call each): a joint hierarchy poses the walk/throw; the same bones can be driven by ragdoll bodies. |
 | `js/physics.js` | cannon-es world: static colliders, the player body, **pooled** projectiles and ragdolls (cone-twist joints), tippable cows, the bell trigger. DOM-free. |
 | `js/npcs.js` | crowd AI (wander/avoid/get-yeeted/stand-up dazed) + pigeon flocks. Reports hits; doesn't score. |
-| `js/items.js` | the five throwables and their physics/scoring numbers. **Tune balance here.** |
+| `js/items.js` | the five throwables (Throw mode) and their physics/scoring numbers. **Tune balance here.** |
+| `js/props.js` | yeetable street furniture — one vertex-coloured geometry per kind, drawn as a single InstancedMesh (one draw call per kind); collision shapes as plain data. |
 | `js/player.js` | movement, the collision-aware third-person camera, aim ray, charge-and-throw. |
 | `js/input.js` | keyboard/mouse (pointer lock) + touch stick/look/buttons. |
 | `js/fx.js` | splat particles, floating score text, screen shake. |

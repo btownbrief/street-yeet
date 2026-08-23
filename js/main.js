@@ -6,6 +6,7 @@ import { NPCs, Pigeons } from './npcs.js';
 import { Player } from './player.js';
 import { Input } from './input.js';
 import { ITEMS, ItemVisuals, makeItemMesh } from './items.js';
+import { PROP_DEFS, YEETABLE_KINDS, propMaterial } from './props.js';
 import { Particles, Floaters, Shake } from './fx.js';
 import { Audio } from './audio.js';
 import * as T from './textures.js';
@@ -77,9 +78,26 @@ physics.addBell(world.bell);
 physics.addCows(world.cows);
 physics.initProjectiles();
 physics.initRagdolls();
+physics.addProps(world.props, PROP_DEFS);
 const npcs = new NPCs(scene, world, physics, { count: MOBILE ? 30 : 46 });
 const pigeons = new Pigeons(scene, world.pigeonSpots);
 const player = new Player(scene, physics, world, camera);
+// yeetable props: one InstancedMesh per kind (all benches = one draw call, etc.)
+const propMat = propMaterial();
+const propInst = {};        // kind → { mesh, geo, next }
+for (const kind of YEETABLE_KINDS) {
+  const count = physics.props.filter((pr) => pr.kind === kind).length;
+  if (!count) continue;
+  const mesh = new THREE.InstancedMesh(PROP_DEFS[kind].geo(), propMat, count);
+  mesh.castShadow = true; mesh.frustumCulled = false; mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  scene.add(mesh);
+  propInst[kind] = { mesh, next: 0 };
+}
+const _pm = new THREE.Matrix4(), _pq = new THREE.Quaternion(), _pp = new THREE.Vector3(), _ps = new THREE.Vector3(1, 1, 1);
+for (const pr of physics.props) { const inst = propInst[pr.kind]; pr.instMesh = inst.mesh; pr.instIdx = inst.next++; }
+// glowing ring that marks the current lock-on target
+const targetRing = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.78, 28), new THREE.MeshBasicMaterial({ color: '#ffd34a', transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false }));
+targetRing.rotation.x = -Math.PI / 2; targetRing.visible = false; targetRing.renderOrder = 4; scene.add(targetRing);
 const visuals = new ItemVisuals(scene);
 const particles = new Particles(scene);
 const floaters = new Floaters($('floaters'), camera);
@@ -106,7 +124,7 @@ document.body.classList.toggle('touch', isTouch);
 const G = {
   state: 'menu', // menu | cutscene | play | results | paused
   t: 0, timeScale: 1, slowT: 0,
-  score: 0, yeets: 0, combo: 0, comboT: 0, bestCombo: 0, longest: 0, bells: 0, cows: 0, dominoes: 0, headshots: 0,
+  score: 0, yeets: 0, things: 0, combo: 0, comboT: 0, bestCombo: 0, longest: 0, bells: 0, cows: 0, dominoes: 0, headshots: 0, target: null, watching: null,
   timeLeft: ROUND_SECONDS, lastTick: -1,
   itemUse: {}, bestScore: Number(localStorage.getItem('sy-best') || 0),
   submitted: false, played: Number(localStorage.getItem('sy-played') || 0),
@@ -140,9 +158,24 @@ function onSwitch(i) {
   player.heldMesh.visible = false; player.heldMesh = heldMeshes[i];
   audio.switchItem();
 }
+player.mode = localStorage.getItem('sy-mode') || 'yeet';
 player.onSwitch = onSwitch;
 buildItemBar();
 el.itemBtn.textContent = ITEMS[0].emoji;
+
+function applyMode(mode) {
+  player.mode = mode; localStorage.setItem('sy-mode', mode);
+  document.body.classList.toggle('mode-yeet', mode === 'yeet');
+  document.body.classList.toggle('mode-throw', mode === 'throw');
+  for (const btn of document.querySelectorAll('.mode-btn')) btn.classList.toggle('sel', btn.dataset.mode === mode);
+  $('yeetPrompt').classList.toggle('hidden', mode !== 'yeet');
+  if (G.state === 'play') el.hint.innerHTML = mode === 'yeet'
+    ? 'WASD move · walk up to anyone/anything · <b>hold click</b> to grab &amp; aim, release to YEET · space jump · shift sprint'
+    : 'WASD move · mouse aim · <b>hold click</b> to charge, release to throw · 1–5 / scroll items · space jump · shift sprint';
+}
+for (const btn of document.querySelectorAll('.mode-btn')) btn.addEventListener('click', () => applyMode(btn.dataset.mode));
+$('pauseModeBtn').addEventListener('click', () => { applyMode(player.mode === 'yeet' ? 'throw' : 'yeet'); });
+applyMode(player.mode);
 
 let announceT = 0;
 function announce(text, cls = '', hold = 1.1) {
@@ -216,6 +249,82 @@ function knockNPC(npc, dir, power, point, part, cause, from) {
   if (mult >= 3 || cause === 'domino') { G.timeScale = 0.28; G.slowT = 0.35; }
 }
 
+// ---------- YEET mode: lock onto the nearest thing and launch it ----------
+function findTarget() {
+  const px = player.x, pz = player.z, ax = Math.sin(player.camYaw), az = Math.cos(player.camYaw);
+  let best = null, bestScore = Infinity;
+  const consider = (type, ref, x, y, z, body) => {
+    const dx = x - px, dz = z - pz, d = Math.hypot(dx, dz);
+    if (d > 5.4) return;
+    const dot = d > 0.01 ? (dx * ax + dz * az) / d : 1;
+    if (dot < -0.15) return;                 // behind you
+    const sc = d - dot * 2.2;                // prefer near + in front of the crosshair
+    if (sc < bestScore) { bestScore = sc; best = { type, ref, x, y, z, body }; }
+  };
+  for (const n of npcs.list) if (n.state === 'walk' || n.state === 'idle') consider('person', n, n.x, 1.1, n.z, null);
+  for (const pr of physics.props) if (!pr.launched) consider('prop', pr, pr.body.position.x, 0.5, pr.body.position.z, pr.body);
+  for (const c of physics.cows) if (!c.tipped) consider('cow', c, c.body.position.x, 1.0, c.body.position.z, c.body);
+  return best;
+}
+
+player.onYeet = ({ dir, speed, power }) => {
+  const t = G.target;
+  if (!t) { announce('GET CLOSER', '', 0.6); return; }
+  let body, label;
+  if (t.type === 'person') {
+    const r = npcs.knock(t.ref, dir, speed, { x: t.ref.x, y: 1.2, z: t.ref.z }, 'torso', 'yeet');
+    if (!r) return;
+    r.playerYeet = true; r.scored = true;   // distance is scored by the follow-cam, not the auto path
+    r.torsoPrev = new THREE.Vector3().copy(r.bodies[1].position);
+    body = r.bodies[0]; label = t.ref.look.label.toUpperCase(); G.yeets++;
+  } else {
+    const pr = t.ref;
+    pr.launched = true; pr.scored = true; pr.settled = 0; pr.peak = 0;
+    pr.start = { x: pr.body.position.x, z: pr.body.position.z };
+    pr.body.wakeUp();
+    pr.body.velocity.set(dir.x * speed, dir.y * speed + speed * 0.12, dir.z * speed);
+    pr.body.angularVelocity.set((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12);
+    body = pr.body; label = (t.type === 'cow') ? 'THE COW' : (PROP_DEFS[pr.kind] ? PROP_DEFS[pr.kind].label : 'THING');
+    G.things = (G.things || 0) + 1;
+  }
+  G.combo = G.comboT > 0 ? G.combo + 1 : 1; G.comboT = 3.5; G.bestCombo = Math.max(G.bestCombo, G.combo);
+  const mult = Math.min(8, G.combo);
+  addScore(60 * mult, t.x, t.y + 0.6, t.z, label, 'big');
+  announce(mult >= 3 ? `×${mult} YEET!` : 'YEET!', mult >= 3 ? 'hot' : '', 0.85);
+  audio.yeet(mult); audio.whoosh(power); shake.hit(0.16, 0.3);
+  particles.burst(t.x, t.y, t.z, t.type === 'person' ? '#e8d9c4' : '#c9c2b0', 16, 4, 1.1);
+  G.timeScale = 0.4; G.slowT = 0.18;  // a beat of slow-mo on the launch
+  player.startWatch(body, 3.0);
+  G.watching = { type: t.type, ref: t.ref, body, start: { x: t.x, z: t.z }, peak: 0, label, mult };
+  targetRing.visible = false;
+};
+
+function updateTarget() {
+  if (G.state !== 'play' || player.mode !== 'yeet' || player.watch) { targetRing.visible = false; return; }
+  if (!player.charging) G.target = findTarget();      // hold the lock while charging
+  const t = G.target;
+  if (t) { targetRing.visible = true; targetRing.position.set(t.type === 'person' ? t.ref.x : t.body.position.x, 0.06, t.type === 'person' ? t.ref.z : t.body.position.z); targetRing.material.opacity = 0.55 + 0.35 * Math.abs(Math.sin(performance.now() / 200)); }
+  else targetRing.visible = false;
+  const showPrompt = player.mode === 'yeet' && !player.watch && !player.charging && !!t;
+  $('yeetPrompt').classList.toggle('hidden', !showPrompt);
+}
+
+function updateWatch(dt) {
+  const w = G.watching; if (!w || !player.watch) return;
+  const b = w.body;
+  if (b.position.y > w.peak) w.peak = b.position.y;
+  const done = player.watch.t > player.watch.dur || (player.watch.t > 0.8 && b.velocity.length() < 0.7);
+  if (!done) return;
+  const dist = Math.hypot(b.position.x - w.start.x, b.position.z - w.start.z);
+  const mult = Math.min(8, Math.max(1, w.mult));
+  const pts = Math.round(dist) * 22 * mult;
+  addScore(pts, b.position.x, Math.max(1, b.position.y) + 0.5, b.position.z, `${Math.round(dist)}m`, 'big');
+  if (w.peak > 4.5) addScore(150 * mult, b.position.x, b.position.y + 1, b.position.z, 'AIR', 'big');
+  if (dist > G.longest) { G.longest = dist; announce(`🏆 ${Math.round(dist)}m RECORD!`, 'gold', 1.4); audio.fanfare(); }
+  else if (dist > 18) announce('BIG YEET', 'hot', 0.9);
+  player.stopWatch(); G.watching = null;
+}
+
 // projectile / ragdoll vs people
 const _d = new THREE.Vector3();
 function hitChecks() {
@@ -265,6 +374,22 @@ function hitChecks() {
       if (r.peak > 3.4) addScore(100, hips.x, 1.8, hips.z, 'AIR', 'big');
     }
   }
+  // launched props (and flying cows) bowl people over
+  for (const pr of physics.props) {
+    if (!pr.launched) continue;
+    const b = pr.body, sp = b.velocity.length();
+    if (sp < 3.5) continue;
+    for (const npc of npcs.list) {
+      if (npc.state === 'ragdoll' || npc.state === 'dazed') continue;
+      if (Math.abs(npc.z - b.position.z) > 2.6 || Math.abs(npc.x - b.position.x) > 2.6) continue;
+      const h = npcs.hitTest(npc, b.position.x, b.position.y, b.position.z, b.position.x, b.position.y, b.position.z, 0.7);
+      if (!h) continue;
+      _d.set(b.velocity.x, b.velocity.y, b.velocity.z).normalize();
+      knockNPC(npc, _d, Math.min(11, sp * 0.7), h.point, h.part, 'domino', null);
+      b.velocity.scale(0.7, b.velocity);
+      break;
+    }
+  }
   // cows tipping
   for (const c of physics.cows) {
     const q = c.body.quaternion;
@@ -295,6 +420,8 @@ function startRound({ skipCut = false } = {}) {
   npcs.resetAll();
   for (const p of physics.projectiles) if (p.active) { physics.retire(p); visuals.release(p.visual); p.visual = null; }
   for (const c of physics.cows) { c.body.position.set(c.home.x, 0, c.home.z); c.body.quaternion.setFromEuler(0, c.home.ry, 0); c.body.velocity.set(0, 0, 0); c.body.angularVelocity.set(0, 0, 0); c.tipped = false; c.body.sleep(); }
+  for (const pr of physics.props) { pr.body.position.set(pr.home.x, 0, pr.home.z); pr.body.quaternion.setFromEuler(0, pr.home.ry, 0); pr.body.velocity.set(0, 0, 0); pr.body.angularVelocity.set(0, 0, 0); pr.launched = false; pr.scored = false; pr.body.sleep(); }
+  G.things = 0; G.watching = null; G.target = null; targetRing.visible = false; player.stopWatch && (player.watch = null);
   floaters.clear();
   player.reset(world.spawn.x, world.spawn.z);
   show(el.menu, false); show(el.results, false);
@@ -317,7 +444,8 @@ function beginPlay(fromGesture = false) {
   announce('YEET HOUR', 'gold', 1.2); audio.start();
   G.played++; localStorage.setItem('sy-played', String(G.played));
   el.hint.classList.toggle('hidden', isTouch);
-  if (!isTouch && !input.locked) el.hint.innerHTML = '<b>Click</b> to grab the mouse · WASD move · <b>hold click</b> to charge, release to YEET · 1–5 items · space jump · shift sprint';
+  applyMode(player.mode);
+  if (!isTouch && !input.locked) el.hint.innerHTML = '<b>Click</b> to grab the mouse, then ' + el.hint.innerHTML;
   player.snapCamera();
 }
 function endRound() {
@@ -329,14 +457,15 @@ function endRound() {
   const isBest = G.score > G.bestScore && G.score > 0;
   G.bestScore = best; localStorage.setItem('sy-best', String(best));
   $('rScore').textContent = G.score.toLocaleString();
-  $('rTitle').textContent = isBest ? 'NEW BEST YEET' : G.score >= 6000 ? 'LEGENDARY YEET' : G.score >= 3000 ? 'STRONG YEET' : G.score > 0 ? 'ROUND OVER' : 'NOBODY GOT YEETED';
+  $('rTitle').textContent = isBest ? 'NEW BEST YEET' : G.score >= 8000 ? 'LEGENDARY YEET' : G.score >= 4000 ? 'STRONG YEET' : G.score > 0 ? 'ROUND OVER' : 'NOBODY GOT YEETED';
   const fav = Object.entries(G.itemUse).sort((a, b) => b[1] - a[1])[0];
   const favItem = fav ? ITEMS.find((k) => k.id === fav[0]) : null;
-  $('rStats').innerHTML = [
-    ['People yeeted', G.yeets], ['Best combo', G.bestCombo ? `×${Math.min(8, G.bestCombo)}` : '—'], ['Longest yeet', G.longest ? `${Math.round(G.longest)} m` : '—'],
-    ['Dominoes', G.dominoes], ['Noggins', G.headshots], ['Cows tipped', G.cows], ['Bell rung', G.bells ? `${G.bells}×` : 'no'],
-    ['Go-to throw', favItem ? `${favItem.emoji} ${favItem.name}` : '—'],
-  ].map(([k, v]) => `<div class="stat"><span>${k}</span><b>${v}</b></div>`).join('');
+  const rows = player.mode === 'yeet'
+    ? [['People yeeted', G.yeets], ['Things yeeted', G.things || 0], ['Longest launch', G.longest ? `${Math.round(G.longest)} m` : '—'],
+       ['Best combo', G.bestCombo ? `×${Math.min(8, G.bestCombo)}` : '—'], ['Dominoes', G.dominoes], ['Cows tipped', G.cows]]
+    : [['People yeeted', G.yeets], ['Best combo', G.bestCombo ? `×${Math.min(8, G.bestCombo)}` : '—'], ['Longest yeet', G.longest ? `${Math.round(G.longest)} m` : '—'],
+       ['Dominoes', G.dominoes], ['Noggins', G.headshots], ['Cows tipped', G.cows], ['Bell rung', G.bells ? `${G.bells}×` : 'no'], ['Go-to throw', favItem ? `${favItem.emoji} ${favItem.name}` : '—']];
+  $('rStats').innerHTML = rows.map(([k, v]) => `<div class="stat"><span>${k}</span><b>${v}</b></div>`).join('');
   $('rBest').textContent = `Your best: ${best.toLocaleString()}`;
   if (isBest) audio.fanfare();
   submitAndShowBoard();
@@ -504,13 +633,16 @@ function frame(now) {
       aimDot.visible = true; aimDot.position.copy(player.aimPoint);
       if (frames % 7 === 0 && player.charge < 1) audio.chargeTick(player.charge);
     } else { el.charge.classList.remove('on'); arcPts.visible = false; aimDot.visible = false; }
+    el.crosshair.style.opacity = player.watch ? '0' : '1';
+    if (player.watch) $('yeetPrompt').classList.add('hidden');
     physics.step(dt, ts);
-    if (playing) hitChecks();
+    if (playing) { updateTarget(); updateWatch(sdt); hitChecks(); }
     npcs.update(sdt, playing || G.state === 'paused' ? { x: player.x, z: player.z } : null);
     // pigeons react to projectiles, flying people, and you
     const threats = [{ x: player.x, y: 0, z: player.z }];
     for (const p of physics.projectiles) if (p.active) threats.push(p.body.position);
     for (const r of physics.ragdolls) if (r.active && r.age < 3) threats.push(r.bodies[1].position);
+    for (const pr of physics.props) if (pr.launched && pr.body.velocity.length() > 3) threats.push(pr.body.position);
     pigeons.update(sdt, threats);
     // sync projectile visuals
     for (const p of physics.projectiles) {
@@ -522,6 +654,9 @@ function frame(now) {
     }
     // cows follow their bodies
     for (const c of physics.cows) { c.mesh.position.set(c.body.position.x, c.body.position.y, c.body.position.z); c.mesh.quaternion.set(c.body.quaternion.x, c.body.quaternion.y, c.body.quaternion.z, c.body.quaternion.w); }
+    // yeetable props follow theirs (instanced)
+    for (const pr of physics.props) { const b = pr.body; _pp.set(b.position.x, b.position.y, b.position.z); _pq.set(b.quaternion.x, b.quaternion.y, b.quaternion.z, b.quaternion.w); _pm.compose(_pp, _pq, _ps); pr.instMesh.setMatrixAt(pr.instIdx, _pm); }
+    for (const kind in propInst) propInst[kind].mesh.instanceMatrix.needsUpdate = true;
     if (G.state === 'menu') {
       // idle menu camera: slow drift on the top block
       const t = now / 1000;

@@ -6,6 +6,7 @@
 import { PARTS, REST, PART_INDEX } from '../js/characters.js';
 import { ITEMS } from '../js/items.js';
 import { ROSTER, STREET, YELPS } from '../js/roster.js';
+import { PROP_DEFS, YEETABLE_KINDS } from '../js/props.js';
 import * as CANNON from '../vendor/cannon-es.js';
 import { Physics } from '../js/physics.js';
 
@@ -87,6 +88,21 @@ let landed = false, pt = 0;
 while (pt < 4) { phys.step(dtF, 1); pt += dtF; if (proj.body.position.y < 0.4 && proj.body.velocity.y <= 0.1 && pt > 0.3) { landed = true; break; } }
 ok(proj.body.position.z > 4, `cheddar travelled downrange (z=${proj.body.position.z.toFixed(1)})`);
 ok(landed, 'cheddar wheel landed on the bricks');
+
+// ---------- props: defs are well-formed + a launched prop settles ----------
+section('Yeetable props');
+ok(YEETABLE_KINDS.length >= 6, `at least 6 prop kinds (have ${YEETABLE_KINDS.length})`);
+for (const k of YEETABLE_KINDS) {
+  const d = PROP_DEFS[k];
+  ok(d.mass > 0 && d.label && d.shapes && d.shapes.length, `${k} has mass/label/shapes`);
+  for (const sh of d.shapes) ok(['box', 'cyl', 'sph'].includes(sh.t) && Array.isArray(sh.a) && Array.isArray(sh.o), `${k} shape well-formed`);
+}
+phys.addProps([{ kind: 'bench', x: 0, z: 0, ry: 0 }], PROP_DEFS);
+const pb = phys.props[0].body; pb.wakeUp(); pb.velocity.set(8, 5, 3);
+let settled = false, pt2 = 0;
+while (pt2 < 6) { phys.step(1 / 60, 1); pt2 += 1 / 60; if (pb.velocity.length() < 0.5 && pt2 > 1) { settled = true; break; } }
+ok(pb.position.y > -0.5, 'launched bench did not fall through the floor');
+ok(settled, `launched bench came to rest (final speed ${pb.velocity.length().toFixed(2)})`);
 
 console.log(`\n${fails === 0 ? '✓ PASS' : '✗ FAIL'} — ${checks - fails}/${checks} checks`);
 process.exit(fails === 0 ? 0 : 1);

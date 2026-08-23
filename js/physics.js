@@ -6,7 +6,7 @@
 import * as CANNON from '../vendor/cannon-es.js';
 import { PARTS, REST } from './characters.js';
 
-export const GROUP = { STATIC: 1, PLAYER: 2, PROJ: 4, COW: 8, TRIGGER: 16 };
+export const GROUP = { STATIC: 1, PLAYER: 2, PROJ: 4, COW: 8, TRIGGER: 16, PROP: 1 << 15 };
 const RAGDOLL_POOL = 10;
 const RAG_BITS = Array.from({ length: RAGDOLL_POOL }, (_, i) => 1 << (5 + i));
 const ALL_RAG = RAG_BITS.reduce((a, b) => a | b, 0);
@@ -25,16 +25,21 @@ export class Physics {
     this.matRag = new CANNON.Material('rag');
     this.matProj = new CANNON.Material('proj');
     this.matBouncy = new CANNON.Material('bouncy');
+    this.matPlayer = new CANNON.Material('player');
     world.addContactMaterial(new CANNON.ContactMaterial(this.matGround, this.matRag, { friction: 0.6, restitution: 0.05 }));
     world.addContactMaterial(new CANNON.ContactMaterial(this.matGround, this.matProj, { friction: 0.5, restitution: 0.35 }));
     world.addContactMaterial(new CANNON.ContactMaterial(this.matGround, this.matBouncy, { friction: 0.4, restitution: 0.7 }));
     world.addContactMaterial(new CANNON.ContactMaterial(this.matRag, this.matProj, { friction: 0.4, restitution: 0.2 }));
+    // the player slides freely — WE drive its velocity, so the solver must not
+    // fight it with friction (a non-rotating sphere would otherwise stick).
+    world.addContactMaterial(new CANNON.ContactMaterial(this.matPlayer, this.matGround, { friction: 0, restitution: 0 }));
     this.removeQueue = [];
     this.onBell = null;
     this.onCow = null;
     this.projectiles = [];
     this.ragdolls = [];
     this.cows = [];
+    this.props = [];
     this.accum = 0;
     this.fixed = 1 / 60;
     this.time = 0;
@@ -64,8 +69,8 @@ export class Physics {
   }
 
   addPlayer(x, z) {
-    const body = new CANNON.Body({ mass: 75, material: this.matGround, fixedRotation: true, linearDamping: 0.0,
-      collisionFilterGroup: GROUP.PLAYER, collisionFilterMask: GROUP.STATIC | GROUP.COW | ALL_RAG | GROUP.PROJ });
+    const body = new CANNON.Body({ mass: 75, material: this.matPlayer, fixedRotation: true, linearDamping: 0.0,
+      collisionFilterGroup: GROUP.PLAYER, collisionFilterMask: GROUP.STATIC | GROUP.COW | GROUP.PROP | ALL_RAG | GROUP.PROJ });
     body.addShape(new CANNON.Sphere(0.42));
     body.position.set(x, 0.42, z);
     body.allowSleep = false;
@@ -82,7 +87,7 @@ export class Physics {
           if (ny > 0.5 && other.mass === 0) grounded = true;
         }
       }
-      this.playerGrounded = grounded;
+      this.playerGrounded = grounded || (body.position.y < 0.5 && Math.abs(body.velocity.y) < 2.2);
     });
     return body;
   }
@@ -102,11 +107,31 @@ export class Physics {
     }
   }
 
+  addProps(list, defs) {
+    this.props = [];
+    for (const p of list) {
+      const def = defs[p.kind];
+      const body = new CANNON.Body({ mass: def.mass, material: this.matGround, collisionFilterGroup: GROUP.PROP, collisionFilterMask: -1, linearDamping: 0.06, angularDamping: 0.5 });
+      for (const sh of def.shapes) {
+        let shape;
+        if (sh.t === 'box') shape = new CANNON.Box(new CANNON.Vec3(sh.a[0], sh.a[1], sh.a[2]));
+        else if (sh.t === 'cyl') shape = new CANNON.Cylinder(sh.a[0], sh.a[1], sh.a[2], 10);
+        else shape = new CANNON.Sphere(sh.a[0]);
+        body.addShape(shape, new CANNON.Vec3(sh.o[0], sh.o[1], sh.o[2]));
+      }
+      body.position.set(p.x, 0, p.z);
+      body.quaternion.setFromEuler(0, p.ry || 0, 0);
+      body.sleepSpeedLimit = 0.25; body.sleepTimeLimit = 0.5;
+      this.world.addBody(body); body.sleep();
+      this.props.push({ body, kind: p.kind, home: { x: p.x, z: p.z, ry: p.ry || 0 }, launched: false, scored: false, prevPos: new CANNON.Vec3(p.x, 0.5, p.z), start: null });
+    }
+  }
+
   // ---------- projectiles ----------
   initProjectiles() {
     for (let i = 0; i < PROJ_POOL; i++) {
       const body = new CANNON.Body({ mass: 1, material: this.matProj, collisionFilterGroup: GROUP.PROJ,
-        collisionFilterMask: GROUP.STATIC | GROUP.COW | ALL_RAG | GROUP.PROJ | GROUP.TRIGGER | GROUP.PLAYER, linearDamping: 0.02, angularDamping: 0.2 });
+        collisionFilterMask: GROUP.STATIC | GROUP.COW | GROUP.PROP | ALL_RAG | GROUP.PROJ | GROUP.TRIGGER | GROUP.PLAYER, linearDamping: 0.02, angularDamping: 0.2 });
       body.addShape(new CANNON.Sphere(0.15));
       body.sleepSpeedLimit = 0.3; body.sleepTimeLimit = 1.0;
       const p = { body, active: false, item: null, age: 0, kind: null, lastSpeed: 0, hitCount: 0, id: i, prev: new CANNON.Vec3(), framePrev: new CANNON.Vec3(), splatted: false };
@@ -160,7 +185,7 @@ export class Physics {
   }
   makeRagdoll(i) {
     const group = RAG_BITS[i];
-    const mask = GROUP.STATIC | GROUP.PLAYER | GROUP.PROJ | GROUP.COW | (ALL_RAG & ~group);
+    const mask = GROUP.STATIC | GROUP.PLAYER | GROUP.PROJ | GROUP.COW | GROUP.PROP | (ALL_RAG & ~group);
     const bodies = [];
     const massOf = { hips: 8, torso: 14, head: 4, uarmL: 2, uarmR: 2, larmL: 1.5, larmR: 1.5, ulegL: 5, ulegR: 5, llegL: 3, llegR: 3 };
     for (const p of PARTS) {

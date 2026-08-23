@@ -6,7 +6,10 @@ non-technical; explain consequential changes in plain language.
 
 ## What this is
 
-Btown's 3D ragdoll-yeeting game on a recreated Church Street Marketplace. Plain
+Btown's 3D ragdoll-yeeting game on a recreated Church Street Marketplace. Two
+modes: **YEET** (lock onto the nearest person/prop/cow and launch it for
+distance, camera follows the flight — `player.js` `onYeet`/`startWatch`, targeting
+in `main.js` `findTarget`/`updateWatch`) and **THROW** (projectiles). Plain
 static site, **no build step, no npm**: `index.html` + `style.css` + ES modules
 in `js/`, three.js (r160) + cannon-es vendored as single files in `vendor/`.
 Deployed by GitHub Pages on push to `main`.
@@ -29,8 +32,16 @@ Deployed by GitHub Pages on push to `main`.
   the west. Don't invent businesses or move landmarks casually — the test
   enforces the even/odd sides and no duplicates. Art is stylized, never a claim
   of exact likeness.
-- **Balance lives in `js/items.js`** (the five throwables) and the scoring
-  constants in `main.js`. Tune there, not scattered in code.
+- **Balance lives in `js/items.js`** (throwables) and the scoring constants in
+  `main.js`. Yeetable furniture is `js/props.js` — each kind is ONE
+  vertex-coloured geometry rendered as a single InstancedMesh (keep it that way;
+  per-prop meshes blew draw calls past 1400). Props sleep until disturbed.
+- **The player is a character controller, not a rolling ball.** It's a
+  `fixedRotation` sphere with a FRICTIONLESS contact against the ground
+  (`matPlayer`×`matGround`, friction 0) — we drive its velocity directly. Don't
+  give it ground friction or it snails to a halt. The aim guide integrates the
+  exact launch velocity (`player.launchVel`), so preview and real flight match —
+  keep them sharing that function.
 - No new dependencies, no build step, no analytics, no accounts. The shared
   Supabase leaderboard (`js/leaderboard.js`, slug `street-yeet`, copied from the
   fleet — don't fork its behavior) is the only server feature.

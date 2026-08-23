@@ -132,3 +132,15 @@ body.touch #mute { bottom: 14px; right: auto; left: 14px; }
 
 /* OG capture mode: nothing but the 3D scene */
 body.og #hud, body.og #menu, body.og #results, body.og #cutscene, body.og #loading, body.og #mute, body.og #touchButtons, body.og #stickBase { display: none !important; }
+
+/* ---------- mode selector ---------- */
+#modeSelect { display: flex; gap: 10px; justify-content: center; margin: 4px auto 18px; flex-wrap: wrap; }
+.mode-btn { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; background: rgba(255,255,255,.08); color: var(--cream); border: 2px solid rgba(255,255,255,.2); border-radius: 14px; padding: 10px 16px; min-width: 210px; transition: transform .08s, border-color .1s, background .1s; }
+.mode-btn b { font-size: 16px; letter-spacing: .02em; }
+.mode-btn span { font-size: 11.5px; opacity: .7; }
+.mode-btn.sel { border-color: var(--maple); background: rgba(242,199,68,.16); transform: translateY(-2px); }
+.mode-btn:hover { background: rgba(255,255,255,.14); }
+#yeetPrompt { position: absolute; left: 50%; top: calc(50% + 34px); transform: translateX(-50%); font-family: var(--display); font-size: 13px; letter-spacing: .06em; color: var(--maple); background: rgba(20,16,16,.5); padding: 3px 12px; border-radius: 999px; white-space: nowrap; pointer-events: none; text-shadow: 0 1px 3px rgba(0,0,0,.8); }
+/* yeet mode hides the throwable bar */
+body.mode-yeet #itemBar, body.mode-yeet #itemName, body.touch.mode-yeet #itemBtn { display: none !important; }
+body.mode-throw #yeetPrompt { display: none !important; }

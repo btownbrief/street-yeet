@@ -83,6 +83,7 @@ const BOX = new THREE.BoxGeometry(1, 1, 1);
 const PLANE = new THREE.PlaneGeometry(1, 1);
 const CYL = new THREE.CylinderGeometry(1, 1, 1, 10);
 const SPH = new THREE.SphereGeometry(1, 10, 8);
+const CONE = new THREE.ConeGeometry(1, 1, 14);
 
 export function buildWorld(scene, { quality = 'high' } = {}) {
   const rng = T.mulberry(2026);
@@ -91,7 +92,8 @@ export function buildWorld(scene, { quality = 'high' } = {}) {
     obstacles: [],      // { x, z, r } circles NPCs steer around
     cameraBlockers: [], // meshes the camera ray-tests against
     cafeSpots: [],
-    cows: [],           // { mesh, x, z } painted cows (dynamic bodies in physics.js)
+    cows: [],
+    props: [],          // { kind, x, z, ry } yeetable street furniture
     bell: null,
     pigeonSpots: [],
     carts: [],
@@ -441,7 +443,7 @@ function buildFirehouse(scene, M, MATS, out, b, brickMats, trimMats) {
   plate.position.set(xFace - side * 0.35, GROUND_H + 1.7, zc); plate.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2; scene.add(plate);
   // cupola
   M.add('white', MATS.white, BOX, mat(xc, H + 1.4, zc, 0, 2.6, 2.6, 2.6));
-  M.add('slate', MATS.slate, CYL, mat(xc, H + 3.6, zc, 0, 0.01, 2.2, 2.0)); // pointed cap (cone via cylinder top radius→0)
+  M.add('slate', MATS.slate, CONE, mat(xc, H + 3.9, zc, 0, 1.9, 3.2, 1.9)); // pointed slate cap
   M.add('gold', MATS.gold, CYL, mat(xc, H + 5.2, zc, 0, 0.04, 1.2, 0.04));
   // "park peek": the gap between BCA and City Hall shows trees + lawn
 }
@@ -491,10 +493,14 @@ function buildChurch(scene, M, MATS, out, brickMats) {
   const belfryY = H + 9;
   M.add('white', MATS.white, CYL, mat(0, belfryY + 2.2, tz, 0, 2.6, 4.4, 2.6)); // octagonal-ish (10 seg)
   for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; M.add('white', MATS.white, CYL, mat(Math.cos(a) * 2.9, belfryY + 2.2, tz + Math.sin(a) * 2.9, 0, 0.18, 4.6, 0.18)); }
-  M.add('white', MATS.white, CYL, mat(0, belfryY + 4.8, tz, 0, 3.3, 0.6, 3.3));
-  M.add('white', MATS.white, CYL, mat(0, belfryY + 5.3 + 6.5, tz, 0, 0.02, 13, 2.4)); // spire
-  M.add('gold', MATS.gold, CYL, mat(0, belfryY + 19.2, tz, 0, 0.05, 1.8, 0.05));
-  M.add('gold', MATS.gold, SPH, mat(0, belfryY + 18.4, tz, 0, 0.35, 0.35, 0.35));
+  M.add('white', MATS.white, CYL, mat(0, belfryY + 4.8, tz, 0, 3.3, 0.6, 3.3)); // belfry cap ring
+  // white octagonal steeple: a proper tapering cone, base on the cap, apex up
+  const spireBase = belfryY + 5.1, spireH = 14;
+  M.add('white', MATS.white, CONE, mat(0, spireBase + spireH / 2, tz, 0, 2.6, spireH, 2.6));
+  // gilded finial: ball + weathervane spike
+  M.add('gold', MATS.gold, SPH, mat(0, spireBase + spireH + 0.2, tz, 0, 0.4, 0.4, 0.4));
+  M.add('gold', MATS.gold, CYL, mat(0, spireBase + spireH + 1.4, tz, 0, 0.05, 2.2, 0.05));
+  M.add('gold', MATS.gold, BOX, mat(0, spireBase + spireH + 2.2, tz, Math.PI / 5, 0.5, 0.06, 0.14));
   // the bell: a trigger volume inside the belfry. Hit it for BELL RINGER.
   out.bell = { x: 0, y: belfryY + 2.2, z: tz, r: 2.6 };
   // iron fence along Pearl, with a gap for the path
@@ -595,18 +601,9 @@ function buildFurniture(scene, M, MATS, out, rng) {
     out.colliders.push({ x, y: 3, z, sx: 0.25, sy: 6, sz: 0.25 });
     out.obstacles.push({ x, z, r: 0.35 });
   });
-  // benches: iron frame + wood slats
+  // benches — yeetable props, oriented to face the street
   for (const [x, z, side] of benchSpots) {
-    const ry = side > 0 ? Math.PI / 2 : -Math.PI / 2; // face the street
-    const L = 1.8;
-    const local = (dx, dy, dz, sx, sy, sz) => mat(x + Math.cos(ry) * dx + Math.sin(ry) * dz, dy, z - Math.sin(ry) * dx + Math.cos(ry) * dz, ry, sx, sy, sz);
-    for (let s = 0; s < 4; s++) M.add('wood', MATS.wood, BOX, local(0, 0.45, -0.22 + s * 0.12, L, 0.04, 0.09));
-    for (let s = 0; s < 3; s++) M.add('wood', MATS.wood, BOX, local(0, 0.62 + s * 0.14, 0.26 + s * 0.04, L, 0.09, 0.04));
-    for (const dx of [-L / 2 + 0.1, L / 2 - 0.1]) {
-      M.add('iron', MATS.iron, BOX, local(dx, 0.22, 0, 0.06, 0.44, 0.5));
-      M.add('iron', MATS.iron, BOX, local(dx, 0.7, 0.3, 0.06, 0.5, 0.06));
-    }
-    out.colliders.push({ x, y: 0.4, z, sx: side ? 0.6 : L, sy: 0.8, sz: side ? L : 0.6 });
+    out.props.push({ kind: 'bench', x, z, ry: side > 0 ? Math.PI / 2 : -Math.PI / 2 });
     out.obstacles.push({ x, z, r: 1.0 });
   }
   // pyramid-top bollards (the rust-brown posts at every block end)
@@ -616,19 +613,8 @@ function buildFurniture(scene, M, MATS, out, rng) {
     out.colliders.push({ x, y: 0.5, z, sx: 0.24, sy: 1.0, sz: 0.24 });
     out.obstacles.push({ x, z, r: 0.3 });
   }
-  for (const [x, z] of trashSpots) {
-    M.add('trash', MATS.trash, CYL, mat(x, 0.5, z, 0, 0.32, 1.0, 0.32));
-    M.add('iron', MATS.iron, CYL, mat(x, 1.02, z, 0, 0.34, 0.06, 0.34));
-    out.colliders.push({ x, y: 0.5, z, sx: 0.6, sy: 1, sz: 0.6 });
-    out.obstacles.push({ x, z, r: 0.45 });
-  }
-  for (const [x, z] of planterSpots) {
-    M.add('planter', MATS.planter, BOX, mat(x, 0.3, z, 0, 1.2, 0.6, 0.8));
-    M.add('foliage', MATS.foliage, SPH, mat(x, 0.75, z, 0, 0.6, 0.35, 0.45));
-    for (let k = 0; k < 5; k++) M.add('flowers', MATS.flowers, SPH, mat(x - 0.4 + rng() * 0.8, 0.95, z - 0.25 + rng() * 0.5, 0, 0.08, 0.08, 0.08));
-    out.colliders.push({ x, y: 0.3, z, sx: 1.2, sy: 0.6, sz: 0.8 });
-    out.obstacles.push({ x, z, r: 0.8 });
-  }
+  for (const [x, z] of trashSpots) { out.props.push({ kind: 'trashcan', x, z, ry: 0 }); out.obstacles.push({ x, z, r: 0.45 }); }
+  for (const [x, z] of planterSpots) { out.props.push({ kind: 'planter', x, z, ry: Math.abs(x) > 4 ? Math.PI / 2 : 0 }); out.obstacles.push({ x, z, r: 0.8 }); }
   for (const [x, z] of rackSpots) {
     for (let k = 0; k < 3; k++) M.add('iron', MATS.iron, CYL, mat(x, 0.45, z + k * 0.5, 0, 0.4, 0.05, 0.4, Math.PI / 2, 0, Math.PI / 2));
     out.colliders.push({ x, y: 0.4, z: z + 0.5, sx: 0.8, sy: 0.8, sz: 1.5 });
@@ -655,23 +641,26 @@ function buildFurniture(scene, M, MATS, out, rng) {
     out.obstacles.push({ x, z, r: 1.7 });
     out.carts.push({ x, z, label: c.label, hotdog: !!c.hotdog });
   }
-  // café tables + chairs in front of the restaurants
+  // café tables + chairs in front of the restaurants — all yeetable
   for (const spot of out.cafeSpots) {
     const n = Math.max(1, Math.floor((spot.z1 - spot.z0) / 3));
     for (let i = 0; i < n; i++) {
-      const z = spot.z0 + 1.5 + i * 3, x = spot.side * (HW - 1.3);
-      M.add('iron', MATS.iron, CYL, mat(x, 0.7, z, 0, 0.45, 0.04, 0.45));
-      M.add('iron', MATS.iron, CYL, mat(x, 0.35, z, 0, 0.03, 0.7, 0.03));
-      for (const dz of [-0.6, 0.6]) {
-        M.add('iron', MATS.iron, BOX, mat(x, 0.44, z + dz, 0, 0.4, 0.04, 0.4));
-        M.add('iron', MATS.iron, BOX, mat(x, 0.65, z + dz + (dz > 0 ? 0.18 : -0.18), 0, 0.4, 0.45, 0.04));
-        for (const dx of [-0.16, 0.16]) M.add('iron', MATS.iron, BOX, mat(x + dx, 0.22, z + dz, 0, 0.03, 0.44, 0.03));
-      }
-      out.colliders.push({ x, y: 0.4, z, sx: 1.0, sy: 0.8, sz: 1.8 });
+      const z = spot.z0 + 1.5 + i * 3, x = spot.side * (HW - 1.4);
+      out.props.push({ kind: 'table', x, z, ry: 0 });
+      out.props.push({ kind: 'chair', x: x - spot.side * 0.7, z: z - 0.5, ry: spot.side > 0 ? 0.3 : -0.3 });
+      out.props.push({ kind: 'chair', x: x - spot.side * 0.6, z: z + 0.6, ry: spot.side > 0 ? -2.6 : 2.6 });
       out.obstacles.push({ x, z, r: 1.2 });
     }
-    // velvet rope posts along the seating edge
+    // a sandwich-board sign at the head of each café's seating
+    out.props.push({ kind: 'aframe', x: spot.side * (HW - 2.4), z: spot.z0 + 0.5, ry: spot.side > 0 ? -Math.PI / 2 : Math.PI / 2 });
+    // velvet rope posts along the seating edge (kept static — decorative)
     for (let i = 0; i <= n; i++) M.add('iron', MATS.iron, CYL, mat(spot.side * (HW - 2.2), 0.45, spot.z0 + i * 3, 0, 0.04, 0.9, 0.04));
+  }
+  // scattered traffic cones + a Btown Brief news box on each block corner
+  const coneRng = T.mulberry(321);
+  for (const blk of STREET.blocks) {
+    for (let k = 0; k < 3; k++) out.props.push({ kind: 'cone', x: (coneRng() - 0.5) * 10, z: blk.z0 + 4 + coneRng() * (blk.z1 - blk.z0 - 8), ry: coneRng() * 6 });
+    out.props.push({ kind: 'newsbox', x: (coneRng() < 0.5 ? -1 : 1) * (HW - 1.3), z: blk.z0 + 3, ry: coneRng() < 0.5 ? 0.2 : -0.2 });
   }
   // Big Joe Burrell (bronze, sax) in front of Halvorson's
   if (out.joe) {
