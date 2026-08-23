@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1d1a1a">
+<title>STREET YEET — Church Street, Burlington VT</title>
+<meta name="description" content="A 3D ragdoll-physics yeeting game set on Church Street Marketplace in Burlington, Vermont. Creemees, syrup jugs, cheddar wheels. Leaf peepers. You know what to do. A Btown Games production.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="STREET YEET — Church Street, Burlington VT">
+<meta property="og:description" content="Third-person 3D ragdoll chaos on a recreated Church Street Marketplace. Yeet creemees, syrup and cheddar wheels at leaf peepers. Ring the Unitarian church bell. Tip a cow.">
+<meta property="og:url" content="https://play.btownbrief.com/street-yeet/">
+<meta property="og:image" content="https://play.btownbrief.com/street-yeet/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://play.btownbrief.com/street-yeet/og-image.png">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="game"></canvas>
+  <div id="touchZone"></div>
+
+  <!-- loading -->
+  <div id="loading" class="screen">
+    <div class="load-inner">
+      <div class="logo small"><span class="l1">STREET</span><span class="l2">YEET</span></div>
+      <div id="loadText">Warming up the bricks…</div>
+    </div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div id="hudTop">
+      <div id="scoreBox"><div id="score">0</div><div id="combo"></div></div>
+      <div id="timer">1:30</div>
+      <div id="hudRight"><button id="pauseBtn" class="hud-chip" aria-label="Pause">⏸</button></div>
+    </div>
+    <div id="crosshair"><div id="chargeRing"></div></div>
+    <div id="announcer"></div>
+    <div id="floaters"></div>
+    <div id="hudBottom">
+      <div id="itemBar"></div>
+      <div id="itemName"></div>
+    </div>
+    <div id="hint" class="hidden">WASD move · mouse aim · <b>hold click</b> to charge, release to YEET · 1–5 / scroll items · space jump · shift sprint · P pause</div>
+    <!-- touch controls -->
+    <div id="stickBase"><div id="stickKnob"></div></div>
+    <div id="touchButtons">
+      <button id="itemBtn" class="tbtn" aria-label="Switch item">🍦</button>
+      <button id="jumpBtn" class="tbtn" aria-label="Jump">⤒</button>
+      <button id="yeetBtn" class="tbtn big" aria-label="Hold to charge, release to yeet">YEET</button>
+    </div>
+  </div>
+
+  <!-- pause -->
+  <div id="pauseOverlay" class="screen hidden">
+    <div class="card" id="pauseCard">
+      <div class="card-title">PAUSED</div>
+      <div class="card-sub">Click anywhere to keep yeeting</div>
+      <div class="card-btns">
+        <button id="resumeBtn" class="big-btn">RESUME</button>
+        <button id="quitBtn" class="chip-btn">QUIT TO MENU</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- cutscene title card -->
+  <div id="cutscene" class="hidden">
+    <div id="cutTitle"><span class="l1">STREET</span><span class="l2">YEET</span></div>
+    <div id="cutSub">Church Street Marketplace · Burlington, Vermont</div>
+    <div id="skipHint">tap / any key to skip</div>
+  </div>
+
+  <button id="mute" aria-label="Toggle sound">🔊</button>
+
+  <!-- title screen -->
+  <div id="menu" class="screen">
+    <div class="menu-inner">
+      <div class="logo"><span class="l1">STREET</span><span class="l2">YEET</span></div>
+      <div id="tagline">It's leaf-peeper season and Church Street is a parking lot.<br>
+        Clear a path the Vermont way: <strong>creemees, syrup, and a wheel of cheddar.</strong><br>
+        <span class="dim">Nobody gets hurt. They just get yeeted.</span></div>
+      <button id="playBtn" class="big-btn">🍦&nbsp; YEET</button>
+      <button id="quickBtn" class="chip-btn">SKIP INTRO</button>
+      <div id="menuBest" class="dim"></div>
+      <div id="howto">
+        <div class="howto-row"><span class="key">WASD</span> move <span class="key">MOUSE</span> aim <span class="key">HOLD CLICK</span> charge → release to yeet</div>
+        <div class="howto-row"><span class="key">1–5</span> pick your throwable <span class="key">SPACE</span> jump <span class="key">SHIFT</span> sprint</div>
+        <div class="howto-row touch-only"><span class="key">LEFT THUMB</span> move <span class="key">RIGHT THUMB</span> look <span class="key">YEET</span> hold &amp; release</div>
+        <div class="howto-sub">90 seconds · combos stack · noggins pay extra · people who fly into other people = DOMINO · ring the church bell if you can</div>
+      </div>
+    </div>
+    <footer id="credit">
+      A Btown Games production · <a href="https://play.btownbrief.com/">More games →</a> · <a href="https://www.btownbrief.com" target="_blank" rel="noopener">Read the BTown Brief →</a>
+    </footer>
+  </div>
+
+  <!-- results -->
+  <div id="results" class="screen hidden">
+    <div class="menu-inner">
+      <div class="card">
+        <div id="rTitle" class="card-title">ROUND OVER</div>
+        <div id="rScore" class="card-big">0</div>
+        <div id="rBest" class="card-sub dim"></div>
+        <div id="rStats" class="stats"></div>
+        <div class="card-btns">
+          <button id="againBtn" class="big-btn">🧀&nbsp; YEET AGAIN</button>
+          <button id="shareBtn" class="chip-btn">📣 SHARE</button>
+          <button id="resultsMenuBtn" class="chip-btn">MENU</button>
+        </div>
+        <div class="lb hidden" id="lb">
+          <div class="lb-tabs">
+            <button class="lb-chip sel" id="lbThisBtn">🏆 THIS MONTH</button>
+            <button class="lb-chip" id="lbLastBtn">LAST MONTH</button>
+          </div>
+          <div class="lb-status" id="lbStatus"></div>
+          <ol id="lbList"></ol>
+          <div class="lb-form hidden" id="lbForm">
+            <input id="lbNameInput" maxlength="20" placeholder="Your name for the board" autocomplete="off" />
+            <button class="lb-chip" id="lbSaveBtn">SAVE</button>
+          </div>
+          <button class="lb-chip lb-rename hidden" id="lbRenameBtn">✏️ CHANGE NAME</button>
+        </div>
+      </div>
+      <footer class="map-credit">A Btown Games production · <a href="https://play.btownbrief.com/">More games →</a></footer>
+    </div>
+  </div>
+</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
