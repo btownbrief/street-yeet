@@ -42,6 +42,12 @@ Deployed by GitHub Pages on push to `main`.
   give it ground friction or it snails to a halt. The aim guide integrates the
   exact launch velocity (`player.launchVel`), so preview and real flight match —
   keep them sharing that function.
+- The **map is Church Street only** (roster.js: 4 blocks Pearl→Main, ~450 m). The
+  **skateboard** (`player.skating`, SKATE_* constants + glide/coast in player.js,
+  board mesh + audio in main.js) exists so you can cross it in a round. Round
+  length is a title-screen option (`applyTime`/`roundLen`, localStorage `sy-time`).
+  Launches follow the look direction + a loft (aim up = fly high); the aim guide
+  (`previewArc` → `this.landPoint`) integrates the exact launch velocity.
 - No new dependencies, no build step, no analytics, no accounts. The shared
   Supabase leaderboard (`js/leaderboard.js`, slug `street-yeet`, copied from the
   fleet — don't fork its behavior) is the only server feature.

@@ -8,9 +8,11 @@ const LANES = [-5.2, -2.6, 0, 2.6, 5.2];
 const HW = STREET.halfWidth;
 const _v = new THREE.Vector3(), _q = new THREE.Quaternion();
 
+// No children in the crowd — you don't yeet kids. (There are no dogs in this
+// game either.) creemeeKid stays defined in LOOKS but is never spawned.
 const CAST = [
-  ['leafPeeper', 4], ['uvmStudent', 4], ['phishFan', 2], ['flannelGuy', 3], ['creemeeKid', 3],
-  ['lunchWalker', 3], ['hockeyDad', 2], ['mittensGuy', 1], ['yogaPerson', 2], ['skater', 2],
+  ['leafPeeper', 5], ['uvmStudent', 5], ['phishFan', 2], ['flannelGuy', 4],
+  ['lunchWalker', 4], ['hockeyDad', 2], ['mittensGuy', 1], ['yogaPerson', 2], ['skater', 2], ['syrupSeller', 1],
 ];
 
 export class NPCs {

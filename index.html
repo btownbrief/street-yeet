@@ -43,6 +43,7 @@
     </div>
     <div id="crosshair"><div id="chargeRing"></div></div>
     <div id="yeetPrompt" class="hidden">HOLD to grab · release to YEET</div>
+    <div id="skateChip"></div>
     <div id="announcer"></div>
     <div id="floaters"></div>
     <div id="hudBottom">
@@ -55,6 +56,7 @@
     <div id="touchButtons">
       <button id="itemBtn" class="tbtn" aria-label="Switch item">🍦</button>
       <button id="jumpBtn" class="tbtn" aria-label="Jump">⤒</button>
+      <button id="skateBtn" class="tbtn" aria-label="Skateboard">🛹</button>
       <button id="yeetBtn" class="tbtn big" aria-label="Hold to charge, release to yeet">YEET</button>
     </div>
   </div>
@@ -94,12 +96,20 @@
       </div>
       <button id="playBtn" class="big-btn">🚀&nbsp; PLAY</button>
       <button id="quickBtn" class="chip-btn">SKIP INTRO</button>
+      <div id="timeSelect">
+        <span class="ts-label">ROUND</span>
+        <button class="time-btn" data-secs="60">1:00</button>
+        <button class="time-btn" data-secs="90">1:30</button>
+        <button class="time-btn" data-secs="180">3:00</button>
+        <button class="time-btn" data-secs="300">FREE SKATE 5:00</button>
+      </div>
       <div id="menuBest" class="dim"></div>
       <div id="howto">
         <div class="howto-row"><span class="key">WASD</span> move <span class="key">MOUSE</span> aim <span class="key">HOLD CLICK</span> charge → release to yeet</div>
         <div class="howto-row"><span class="key">1–5</span> pick your throwable <span class="key">SPACE</span> jump <span class="key">SHIFT</span> sprint</div>
         <div class="howto-row touch-only"><span class="key">LEFT THUMB</span> move <span class="key">RIGHT THUMB</span> look <span class="key">YEET</span> hold &amp; release</div>
-        <div class="howto-sub">90 seconds · combos stack · noggins pay extra · people who fly into other people = DOMINO · ring the church bell if you can</div>
+        <div class="howto-row"><span class="key">F</span> hop on a skateboard to cover the street · aim <b>up</b> to launch things higher</div>
+        <div class="howto-sub">Church Street, Pearl → Main · combos stack · fly into others = DOMINO · ring the church bell · pick your round length above</div>
       </div>
     </div>
     <footer id="credit">

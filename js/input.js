@@ -10,6 +10,7 @@ export class Input {
     this.jumpQueued = false;
     this.switchDelta = 0;                 // +1/-1 item cycle requests
     this.selectIndex = -1;                // direct 1-5 selection
+    this.skateToggle = false;             // F / 🛹 button — hop on/off the board
     this.isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
     this.locked = false;
     this.enabled = false;
@@ -31,6 +32,7 @@ export class Input {
       if (e.code === 'KeyQ') this.switchDelta -= 1;
       if (e.code === 'KeyE') this.switchDelta += 1;
       if (/^Digit[1-5]$/.test(e.code)) this.selectIndex = Number(e.code[5]) - 1;
+      if (e.code === 'KeyF') this.skateToggle = true;
       if (this.onAnyKey) this.onAnyKey(e);
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
@@ -123,6 +125,7 @@ export class Input {
     hold(this.ui.jumpBtn, () => { this.jumpQueued = true; }, () => {});
     this.ui.itemBtn.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); this.switchDelta += 1; }, { passive: false });
     this.ui.itemBtn.addEventListener('click', () => { if (!this.isTouch) this.switchDelta += 1; });
+    if (this.ui.skateBtn) { const tap = (e) => { e.preventDefault(); e.stopPropagation(); this.skateToggle = true; }; this.ui.skateBtn.addEventListener('touchstart', tap, { passive: false }); this.ui.skateBtn.addEventListener('click', tap); }
   }
 
   requestLock() {
@@ -156,8 +159,9 @@ export class Input {
       jump: this.jumpQueued,
       switchDelta: this.switchDelta,
       selectIndex: this.selectIndex,
+      skateToggle: this.skateToggle,
     };
-    this.lookDX = 0; this.lookDY = 0; this.jumpQueued = false; this.switchDelta = 0; this.selectIndex = -1;
+    this.lookDX = 0; this.lookDY = 0; this.jumpQueued = false; this.switchDelta = 0; this.selectIndex = -1; this.skateToggle = false;
     return snap;
   }
 }

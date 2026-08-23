@@ -14,7 +14,7 @@ import { STREET } from './roster.js';
 import * as LB from './leaderboard.js';
 
 const $ = (id) => document.getElementById(id);
-const ROUND_SECONDS = 90;
+const ROUND_SECONDS = Number(localStorage.getItem('sy-time')) || 90;
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 const OG = new URLSearchParams(location.search).has('og');
 const MOBILE = isTouch && Math.min(innerWidth, innerHeight) < 900;
@@ -117,7 +117,7 @@ const aimDot = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), new THREE.M
 aimDot.visible = false; aimDot.renderOrder = 6; scene.add(aimDot);
 
 // ---------- input ----------
-const input = new Input(canvas, { zone: $('touchZone'), stickBase: $('stickBase'), stickKnob: $('stickKnob'), yeetBtn: $('yeetBtn'), jumpBtn: $('jumpBtn'), itemBtn: $('itemBtn') });
+const input = new Input(canvas, { zone: $('touchZone'), stickBase: $('stickBase'), stickKnob: $('stickKnob'), yeetBtn: $('yeetBtn'), jumpBtn: $('jumpBtn'), itemBtn: $('itemBtn'), skateBtn: $('skateBtn') });
 document.body.classList.toggle('touch', isTouch);
 
 // ---------- game state ----------
@@ -158,6 +158,20 @@ function onSwitch(i) {
   player.heldMesh.visible = false; player.heldMesh = heldMeshes[i];
   audio.switchItem();
 }
+// skateboard mesh (shown only while riding)
+const board = (() => {
+  const g = new THREE.Group();
+  const deckMat = new THREE.MeshStandardMaterial({ color: '#7a1f1a', roughness: 0.6 });
+  const wheelMat = new THREE.MeshStandardMaterial({ color: '#f2c744', roughness: 0.4 });
+  const truck = new THREE.MeshStandardMaterial({ color: '#c9c9c9', roughness: 0.3, metalness: 0.6 });
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.05, 0.86), deckMat); deck.castShadow = true; deck.position.y = 0.11; g.add(deck);
+  // upturned nose/tail
+  for (const z of [-0.43, 0.43]) { const t = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.05, 0.12), deckMat); t.position.set(0, 0.14, z); t.rotation.x = z > 0 ? -0.5 : 0.5; g.add(t); }
+  for (const dz of [-0.28, 0.28]) { const tr = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.04, 0.06), truck); tr.position.set(0, 0.06, dz); g.add(tr);
+    for (const dx of [-0.13, 0.13]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.05, 10), wheelMat); w.rotation.z = Math.PI / 2; w.position.set(dx, 0.055, dz); w.castShadow = true; g.add(w); } }
+  g.visible = false; scene.add(g); return g;
+})();
+player.onSkate = (on) => { board.visible = on; if (on) audio.skateOn(); else audio.skateOff(); $('skateChip') && ($('skateChip').textContent = on ? '🛹 skating — F to hop off' : ''); };
 player.mode = localStorage.getItem('sy-mode') || 'yeet';
 player.onSwitch = onSwitch;
 buildItemBar();
@@ -170,12 +184,16 @@ function applyMode(mode) {
   for (const btn of document.querySelectorAll('.mode-btn')) btn.classList.toggle('sel', btn.dataset.mode === mode);
   $('yeetPrompt').classList.toggle('hidden', mode !== 'yeet');
   if (G.state === 'play') el.hint.innerHTML = mode === 'yeet'
-    ? 'WASD move · walk up to anyone/anything · <b>hold click</b> to grab &amp; aim, release to YEET · space jump · shift sprint'
-    : 'WASD move · mouse aim · <b>hold click</b> to charge, release to throw · 1–5 / scroll items · space jump · shift sprint';
+    ? 'WASD move · walk up to anyone/anything · <b>hold click</b> to grab &amp; aim, release to YEET · <b>F</b> skateboard · space jump · shift sprint'
+    : 'WASD move · mouse aim · <b>hold click</b> to charge, release to throw · 1–5 items · <b>F</b> skateboard · space jump · shift sprint';
 }
 for (const btn of document.querySelectorAll('.mode-btn')) btn.addEventListener('click', () => applyMode(btn.dataset.mode));
 $('pauseModeBtn').addEventListener('click', () => { applyMode(player.mode === 'yeet' ? 'throw' : 'yeet'); });
 applyMode(player.mode);
+let roundLen = Number(localStorage.getItem('sy-time')) || 90;
+function applyTime(secs) { roundLen = secs; localStorage.setItem('sy-time', String(secs)); for (const btn of document.querySelectorAll('.time-btn')) btn.classList.toggle('sel', Number(btn.dataset.secs) === secs); }
+for (const btn of document.querySelectorAll('.time-btn')) btn.addEventListener('click', () => applyTime(Number(btn.dataset.secs)));
+applyTime(roundLen);
 
 let announceT = 0;
 function announce(text, cls = '', hold = 1.1) {
@@ -415,7 +433,7 @@ function enterMenu() {
 function startRound({ skipCut = false } = {}) {
   audio.ensure(); audio.ambientOn();
   setScore(0); G.yeets = 0; G.combo = 0; G.comboT = 0; G.bestCombo = 0; G.longest = 0; G.bells = 0; G.cows = 0; G.dominoes = 0; G.headshots = 0; G.itemUse = {};
-  G.timeLeft = ROUND_SECONDS; G.lastTick = -1; G.submitted = false; G.bellCool = 0;
+  G.timeLeft = roundLen; G.lastTick = -1; G.submitted = false; G.bellCool = 0;
   el.combo.className = '';
   npcs.resetAll();
   for (const p of physics.projectiles) if (p.active) { physics.retire(p); visuals.release(p.visual); p.visual = null; }
@@ -630,7 +648,7 @@ function frame(now) {
       el.charge.classList.add('on'); el.charge.classList.toggle('max', player.charge >= 1);
       player.previewArc(arcGeo.attributes.position.array, ARC_N);
       arcGeo.attributes.position.needsUpdate = true; arcPts.visible = true;
-      aimDot.visible = true; aimDot.position.copy(player.aimPoint);
+      aimDot.visible = true; aimDot.position.copy(player.landPoint);
       if (frames % 7 === 0 && player.charge < 1) audio.chargeTick(player.charge);
     } else { el.charge.classList.remove('on'); arcPts.visible = false; aimDot.visible = false; }
     el.crosshair.style.opacity = player.watch ? '0' : '1';
@@ -657,6 +675,9 @@ function frame(now) {
     // yeetable props follow theirs (instanced)
     for (const pr of physics.props) { const b = pr.body; _pp.set(b.position.x, b.position.y, b.position.z); _pq.set(b.quaternion.x, b.quaternion.y, b.quaternion.z, b.quaternion.w); _pm.compose(_pp, _pq, _ps); pr.instMesh.setMatrixAt(pr.instIdx, _pm); }
     for (const kind in propInst) propInst[kind].mesh.instanceMatrix.needsUpdate = true;
+    // skateboard rides under the player's feet, aligned to travel
+    if (player.skating) { board.position.set(player.x, 0.0, player.z); board.rotation.y = player.yaw; audio.skateRoll(player.speed); }
+    else audio.skateRoll(0);
     if (G.state === 'menu') {
       // idle menu camera: slow drift on the top block
       const t = now / 1000;

@@ -144,3 +144,14 @@ body.og #hud, body.og #menu, body.og #results, body.og #cutscene, body.og #loadi
 /* yeet mode hides the throwable bar */
 body.mode-yeet #itemBar, body.mode-yeet #itemName, body.touch.mode-yeet #itemBtn { display: none !important; }
 body.mode-throw #yeetPrompt { display: none !important; }
+
+/* ---------- time selector ---------- */
+#timeSelect { display: flex; align-items: center; gap: 6px; justify-content: center; flex-wrap: wrap; margin: 2px auto 6px; }
+.ts-label { font-size: 11px; letter-spacing: .12em; opacity: .6; font-weight: 800; margin-right: 2px; }
+.time-btn { background: rgba(255,255,255,.08); color: var(--cream); border: 1px solid rgba(255,255,255,.2); border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 800; letter-spacing: .03em; }
+.time-btn.sel { background: var(--maple); color: var(--ink); border-color: var(--maple); }
+.time-btn:hover { background: rgba(255,255,255,.16); }
+/* skate HUD hint chip */
+#skateChip { position: absolute; left: 50%; transform: translateX(-50%); bottom: 128px; font-family: var(--display); font-size: 13px; letter-spacing: .05em; color: #7ad4ff; background: rgba(20,16,16,.5); padding: 3px 12px; border-radius: 999px; white-space: nowrap; pointer-events: none; }
+body.touch #skateChip { display: none; }
+#skateChip:empty { display: none; }

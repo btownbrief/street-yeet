@@ -279,14 +279,17 @@ export class Rig {
   setPosition(x, y, z) { this.root.position.set(x, y, z); }
 
   // ---- posing ----
-  updatePose(dt, { speed = 0, airborne = false, charge = -1, releasing = 0, dizzy = 0, idleStyle = 0 } = {}) {
-    this.time += dt * (1 + speed * 0.9);
+  updatePose(dt, { speed = 0, airborne = false, charge = -1, releasing = 0, dizzy = 0, idleStyle = 0, skating = false } = {}) {
+    // cadence rises gently with speed (not on top of a fixed high rate) and the
+    // stride is long, so it reads as real steps instead of a frantic shuffle.
+    this.time += dt * (0.7 + speed * 0.42);
     const J = this.joints, t = this.time;
-    const walk = THREE.MathUtils.clamp(speed / 3, 0, 1.6);
-    const cyc = t * 7.5;
-    const sw = Math.sin(cyc) * 0.55 * Math.min(1, walk);
-    const sw2 = Math.sin(cyc + Math.PI) * 0.55 * Math.min(1, walk);
-    const bob = Math.abs(Math.sin(cyc)) * 0.035 * Math.min(1, walk);
+    const walk = THREE.MathUtils.clamp(speed / 3.4, 0, 1.25);
+    const cyc = t * 6.2;
+    const amp = 0.9;
+    const sw = Math.sin(cyc) * amp * Math.min(1, walk);
+    const sw2 = Math.sin(cyc + Math.PI) * amp * Math.min(1, walk);
+    const bob = Math.abs(Math.sin(cyc)) * 0.05 * Math.min(1, walk);
     J.hips.position.y = PARTS[0].j[1] + (airborne ? 0.06 : bob) - (walk > 0 ? 0.02 : 0);
     J.hips.rotation.set(walk > 0 ? 0.08 * walk : 0, Math.sin(cyc) * 0.08 * walk, 0);
     J.torso.rotation.set(walk * 0.06 + (airborne ? -0.15 : 0), -Math.sin(cyc) * 0.1 * walk, 0);
@@ -296,7 +299,7 @@ export class Rig {
       J.head.rotation.set(Math.sin(t * 0.7) * 0.05, Math.sin(t * 0.45 + idleStyle) * 0.35, 0);
     } else J.head.rotation.set(0.05, Math.sin(cyc * 0.5) * 0.05, 0);
     // legs
-    const kneeL = Math.max(0, -Math.sin(cyc)) * 0.9 * walk, kneeR = Math.max(0, -Math.sin(cyc + Math.PI)) * 0.9 * walk;
+    const kneeL = Math.max(0, -Math.sin(cyc)) * 1.25 * Math.min(1.1, walk), kneeR = Math.max(0, -Math.sin(cyc + Math.PI)) * 1.25 * Math.min(1.1, walk);
     if (airborne) {
       J.ulegL.rotation.set(-0.5, 0, 0); J.ulegR.rotation.set(0.3, 0, 0);
       J.llegL.rotation.set(1.1, 0, 0); J.llegR.rotation.set(0.6, 0, 0);
@@ -305,7 +308,7 @@ export class Rig {
       J.llegL.rotation.set(kneeL, 0, 0); J.llegR.rotation.set(kneeR, 0, 0);
     }
     // arms
-    const armAmp = 0.45 * walk * this.armSwing;
+    const armAmp = 0.62 * Math.min(1.1, walk) * this.armSwing;
     J.uarmL.rotation.set(sw2 * armAmp / 0.55, 0, 0.12);
     J.uarmR.rotation.set(sw * armAmp / 0.55, 0, -0.12);
     J.larmL.rotation.set(-0.35 - Math.max(0, sw2) * 0.4 * walk, 0, 0);
@@ -332,6 +335,19 @@ export class Rig {
     }
     // busker: arms hold the guitar
     if (this.look.guitar) { J.uarmL.rotation.set(-0.9, 0.5, 0.9); J.larmL.rotation.set(-1.2, 0, 0); J.uarmR.rotation.set(-0.6, 0, -0.2); J.larmR.rotation.set(-1.3, 0, 0); }
+    // skateboard stance: sideways crouch, one foot forward, arms out for balance,
+    // a little push-bob. Overrides the walk cycle while riding.
+    if (skating && charge < 0) {
+      const g = Math.abs(Math.sin(t * 4)) * 0.12 * Math.min(1, speed / 6); // push bob
+      J.hips.position.y = PARTS[0].j[1] - 0.14 - g;
+      J.hips.rotation.set(0.12, 0.5, 0);                 // turn side-on to the board
+      J.torso.rotation.set(0.16, -0.15, 0);
+      J.head.rotation.set(-0.05, -0.4, 0);
+      J.ulegL.rotation.set(-0.35, 0, 0.12); J.llegL.rotation.set(0.7, 0, 0);   // front foot
+      J.ulegR.rotation.set(0.45, 0, -0.12); J.llegR.rotation.set(0.55, 0, 0);  // back foot
+      J.uarmL.rotation.set(-0.5, 0.2, 0.9); J.larmL.rotation.set(-0.3, 0, 0);
+      J.uarmR.rotation.set(-0.5, -0.2, -0.9); J.larmR.rotation.set(-0.3, 0, 0);
+    }
     this.root.updateMatrixWorld(true);
     for (let i = 0; i < PARTS.length; i++) this.bones[i].matrixWorld.copy(this.joints[PARTS[i].n].matrixWorld);
     this.afterBones();

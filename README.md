@@ -20,8 +20,18 @@ Two modes, your pick on the title screen (switch any time from the pause menu):
 - **🍦 THROW MODE.** The projectile game: sling creemees, pints, syrup jugs, a
   rolling cheddar wheel and pumpkins at the crowd.
 
-Both are **third-person**, 90-second rounds. Move with WASD (or an on-screen stick
-on phones), aim with the mouse/right thumb, hold to charge and release to yeet.
+Both are **third-person**. Move with WASD (or an on-screen stick on phones), aim
+with the mouse/right thumb, hold to charge and release to yeet. Aiming **up**
+launches things in a high arc — the angle of attack matters, and the dotted guide
+shows exactly where it lands.
+
+- **🛹 Skateboard.** Press **F** (or the 🛹 button) to hop on a board and glide —
+  ~3× faster with real momentum, so you can cover the whole street. Press again to
+  hop off.
+- **Round length** is your pick on the title screen: 1:00, 1:30, 3:00, or a 5:00
+  "Free Skate."
+- **The map** is the four blocks of Church Street Marketplace, Pearl → Main
+  (~450 m), with the cross-streets and a stylized town around it.
 - **Five throwables**, each with real physics: the fast light **maple creemee**
   (splats), the **bouncy pint** (ricochets), the heavy **syrup jug** (big
   knockback), the **cheddar wheel** (rolls down the bricks like a bowling ball),

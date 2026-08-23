@@ -61,6 +61,17 @@ export class Audio {
   start() { [523, 659, 784, 1046].forEach((f, i) => this.tone(f, { type: 'triangle', a: 0.01, d: 0.25, peak: 0.16, when: i * 0.09 })); }
   end() { [784, 659, 523, 392].forEach((f, i) => this.tone(f, { type: 'triangle', a: 0.01, d: 0.35, peak: 0.16, when: i * 0.14 })); }
   fanfare() { [523, 659, 784, 1046, 784, 1046, 1318].forEach((f, i) => this.tone(f, { type: 'square', a: 0.01, d: 0.18, peak: 0.09, when: i * 0.1 })); }
+  skateOn() {
+    if (!this.ctx || this.skate) return;
+    const src = this.ctx.createBufferSource(); src.buffer = this.noiseBuf; src.loop = true;
+    const f = this.ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1400; f.Q.value = 0.8;
+    const g = this.ctx.createGain(); g.gain.value = 0.0;
+    src.connect(f); f.connect(g); g.connect(this.master); src.start();
+    this.skate = { src, g, f };
+    this.tone(300, { type: 'square', a: 0.005, d: 0.08, peak: 0.1, slide: 600 }); // hop-on tick
+  }
+  skateRoll(speed) { if (this.skate) { this.skate.g.gain.value = Math.min(0.14, speed * 0.008); this.skate.f.frequency.value = 900 + speed * 90; } }
+  skateOff() { if (!this.skate) return; try { this.skate.src.stop(); } catch { /* */ } this.skate = null; this.tone(500, { type: 'square', a: 0.004, d: 0.1, peak: 0.08, slide: 200 }); }
   ambientOn() {
     if (!this.ctx || this.ambient) return;
     // street murmur: filtered noise, very low
