@@ -9,6 +9,7 @@ import { ITEMS } from './items.js';
 
 const WALK = 6.8, SPRINT = 12.0, JUMP = 6.6, ACCEL_G = 18, ACCEL_A = 4;
 const SKATE_CRUISE = 13.5, SKATE_PUSH = 22.0, SKATE_ACCEL = 7, SKATE_COAST = 0.55; // m/s, and how fast a coasting board bleeds speed (per second)
+const CHARGE_HALF = 0.62; // seconds for the power meter to sweep low↔high once
 const CAM_DIST = 4.6, CAM_H = 1.8, CAM_SIDE = 0.5, CAM_DIST_AIM = 3.1;
 const GRAV = 9.82;
 const _dir = new THREE.Vector3(), _want = new THREE.Vector3(), _from = new THREE.Vector3(), _tmp = new THREE.Vector3(), _tmp2 = new THREE.Vector3();
@@ -22,7 +23,7 @@ export class Player {
     this.body = physics.addPlayer(world.spawn.x, world.spawn.z);
     this.yaw = 0;
     this.camYaw = 0; this.camPitch = 0.16;
-    this.charge = -1; this.releasing = 0;
+    this.charge = -1; this.chargeDir = 1; this.releasing = 0;
     this.item = 0;
     this.mode = 'yeet';               // 'yeet' | 'throw'
     this.speed = 0; this.vx = 0; this.vz = 0;
@@ -47,15 +48,16 @@ export class Player {
 
   reset(x, z) {
     this.body.position.set(x, 0.42, z); this.body.velocity.set(0, 0, 0);
-    this.yaw = 0; this.camYaw = 0; this.camPitch = 0.16; this.charge = -1; this.releasing = 0; this.watch = null; this.skating = false;
+    this.yaw = 0; this.camYaw = 0; this.camPitch = 0.16; this.charge = -1; this.chargeDir = 1; this.releasing = 0; this.watch = null; this.skating = false;
     this.snapCamera();
   }
   snapCamera() { this.computeCamera(1); this.camera.position.copy(this.camPos); this.camera.lookAt(this.camLook); }
 
-  // launch speed for the current mode, given charge 0..1
+  // launch speed for the current mode, given charge 0..1. Big top end so a
+  // well-timed release at the meter's peak really sends them.
   launchSpeed(power) {
-    if (this.mode === 'throw') return (10 + 19 * power) * this.kind.speed;
-    return 12 + 26 * power;          // people/things fly hard
+    if (this.mode === 'throw') return (11 + 30 * power) * this.kind.speed;
+    return 15 + 52 * power;          // people/things fly HARD (max ~67 m/s)
   }
 
   update(dt, inp, { allowInput = true } = {}) {
@@ -99,9 +101,16 @@ export class Player {
       if (allowInput && inp.selectIndex >= 0 && inp.selectIndex !== this.item) { this.item = inp.selectIndex; if (this.onSwitch) this.onSwitch(this.item); }
       if (allowInput && inp.switchDelta) { this.item = ((this.item + inp.switchDelta) % ITEMS.length + ITEMS.length) % ITEMS.length; if (this.onSwitch) this.onSwitch(this.item); }
     }
-    // charge / release
-    if (allowInput && inp.throwHeld) { this.charge = this.charge < 0 ? 0 : Math.min(1, this.charge + dt / 0.8); }
-    else if (this.charge >= 0) this.release();
+    // charge / release: the power meter SWEEPS between low and high while held,
+    // so you have to release near the peak for a big launch (not just hold max).
+    if (allowInput && inp.throwHeld) {
+      if (this.charge < 0) { this.charge = 0.08; this.chargeDir = 1; }
+      else {
+        this.charge += this.chargeDir * dt / CHARGE_HALF;
+        if (this.charge >= 1) { this.charge = 1; this.chargeDir = -1; }
+        else if (this.charge <= 0.08) { this.charge = 0.08; this.chargeDir = 1; }
+      }
+    } else if (this.charge >= 0) this.release();
     if (this.releasing > 0) this.releasing = Math.max(0, this.releasing - dt * 4);
     // rig
     this.rig.setPosition(b.position.x, b.position.y - 0.42, b.position.z);

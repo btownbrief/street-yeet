@@ -171,7 +171,9 @@ const board = (() => {
     for (const dx of [-0.13, 0.13]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.05, 10), wheelMat); w.rotation.z = Math.PI / 2; w.position.set(dx, 0.055, dz); w.castShadow = true; g.add(w); } }
   g.visible = false; scene.add(g); return g;
 })();
-player.onSkate = (on) => { board.visible = on; if (on) audio.skateOn(); else audio.skateOff(); $('skateChip') && ($('skateChip').textContent = on ? '🛹 skating — F to hop off' : ''); };
+function setSkateChip() { const c = $('skateChip'); if (!c) return; if (G.state !== 'play' || isTouch) { c.textContent = ''; return; } c.textContent = player.skating ? '🛹 SKATING — click / F to hop off' : '🛹 click or press F to skateboard'; c.classList.toggle('on', player.skating); }
+player.onSkate = (on) => { board.visible = on; if (on) audio.skateOn(); else audio.skateOff(); setSkateChip(); };
+$('skateChip') && $('skateChip').addEventListener('click', () => { if (G.state === 'play') { input.skateToggle = true; } });
 player.mode = localStorage.getItem('sy-mode') || 'yeet';
 player.onSwitch = onSwitch;
 buildItemBar();
@@ -184,7 +186,7 @@ function applyMode(mode) {
   for (const btn of document.querySelectorAll('.mode-btn')) btn.classList.toggle('sel', btn.dataset.mode === mode);
   $('yeetPrompt').classList.toggle('hidden', mode !== 'yeet');
   if (G.state === 'play') el.hint.innerHTML = mode === 'yeet'
-    ? 'WASD move · walk up to anyone/anything · <b>hold click</b> to grab &amp; aim, release to YEET · <b>F</b> skateboard · space jump · shift sprint'
+    ? 'WASD move · walk up to anyone/anything · <b>hold to charge</b> (meter pulses — release at the peak!) · aim up for height · <b>F</b> skateboard'
     : 'WASD move · mouse aim · <b>hold click</b> to charge, release to throw · 1–5 items · <b>F</b> skateboard · space jump · shift sprint';
 }
 for (const btn of document.querySelectorAll('.mode-btn')) btn.addEventListener('click', () => applyMode(btn.dataset.mode));
@@ -423,6 +425,7 @@ function hitChecks() {
 function show(elm, on) { elm.classList.toggle('hidden', !on); }
 function enterMenu() {
   G.state = 'menu';
+  setSkateChip();
   show(el.menu, true); show(el.results, false); show(el.hud, false); show(el.cut, false);
   input.enabled = false; input.releaseLock();
   $('menuBest').textContent = G.bestScore ? `Your best: ${G.bestScore.toLocaleString()}` : '';
@@ -463,12 +466,13 @@ function beginPlay(fromGesture = false) {
   G.played++; localStorage.setItem('sy-played', String(G.played));
   el.hint.classList.toggle('hidden', isTouch);
   applyMode(player.mode);
+  setSkateChip();
   if (!isTouch && !input.locked) el.hint.innerHTML = '<b>Click</b> to grab the mouse, then ' + el.hint.innerHTML;
   player.snapCamera();
 }
 function endRound() {
   G.state = 'results';
-  input.enabled = false; input.releaseLock();
+  input.enabled = false; input.releaseLock(); setSkateChip();
   show(el.hud, false); show(el.results, true);
   audio.end();
   const best = Math.max(G.bestScore, G.score);

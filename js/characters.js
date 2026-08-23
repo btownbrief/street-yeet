@@ -302,10 +302,10 @@ export class Rig {
     const kneeL = Math.max(0, -Math.sin(cyc)) * 1.25 * Math.min(1.1, walk), kneeR = Math.max(0, -Math.sin(cyc + Math.PI)) * 1.25 * Math.min(1.1, walk);
     if (airborne) {
       J.ulegL.rotation.set(-0.5, 0, 0); J.ulegR.rotation.set(0.3, 0, 0);
-      J.llegL.rotation.set(1.1, 0, 0); J.llegR.rotation.set(0.6, 0, 0);
+      J.llegL.rotation.set(-1.1, 0, 0); J.llegR.rotation.set(-0.6, 0, 0);
     } else {
       J.ulegL.rotation.set(sw, 0, 0); J.ulegR.rotation.set(sw2, 0, 0);
-      J.llegL.rotation.set(kneeL, 0, 0); J.llegR.rotation.set(kneeR, 0, 0);
+      J.llegL.rotation.set(-kneeL, 0, 0); J.llegR.rotation.set(-kneeR, 0, 0); // knees bend backward
     }
     // arms
     const armAmp = 0.62 * Math.min(1.1, walk) * this.armSwing;

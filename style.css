@@ -152,6 +152,7 @@ body.mode-throw #yeetPrompt { display: none !important; }
 .time-btn.sel { background: var(--maple); color: var(--ink); border-color: var(--maple); }
 .time-btn:hover { background: rgba(255,255,255,.16); }
 /* skate HUD hint chip */
-#skateChip { position: absolute; left: 50%; transform: translateX(-50%); bottom: 128px; font-family: var(--display); font-size: 13px; letter-spacing: .05em; color: #7ad4ff; background: rgba(20,16,16,.5); padding: 3px 12px; border-radius: 999px; white-space: nowrap; pointer-events: none; }
+#skateChip { position: absolute; left: 50%; transform: translateX(-50%); bottom: 128px; font-family: var(--display); font-size: 14px; letter-spacing: .05em; color: #7ad4ff; background: rgba(20,16,16,.62); border: 1px solid rgba(122,212,255,.5); padding: 5px 16px; border-radius: 999px; white-space: nowrap; pointer-events: auto; cursor: pointer; }
+#skateChip.on { color: #1d1a1a; background: #7ad4ff; border-color: #7ad4ff; }
 body.touch #skateChip { display: none; }
 #skateChip:empty { display: none; }
